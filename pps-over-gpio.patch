@@ -1,0 +1,81 @@
+From: Chen Wei <weichen302@gmail.com>
+Date: Sun, 5 Oct 2014 19:21:22 +0800
+Subject: [PATCH] Specify GPIO pin when loading module
+
+---
+ drivers/pps/clients/pps-gpio.c |   35 +++++++++++++++++++++++++++++++++--
+ 1 file changed, 33 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/pps/clients/pps-gpio.c b/drivers/pps/clients/pps-gpio.c
+index 6550555..362098e 100644
+--- a/drivers/pps/clients/pps-gpio.c
++++ b/drivers/pps/clients/pps-gpio.c
+@@ -33,6 +33,8 @@
+ #include <linux/pps-gpio.h>
+ #include <linux/gpio.h>
+ #include <linux/list.h>
++#include <linux/moduleparam.h>
++
+ 
+ /* Info for each registered platform device */
+ struct pps_gpio_device_data {
+@@ -203,16 +205,36 @@ static struct platform_driver pps_gpio_driver = {
+ 	},
+ };
+ 
++static struct pps_gpio_platform_data pps_gpio_info = {
++	.assert_falling_edge = false,
++	.capture_clear = false,
++	.gpio_pin = 1,
++	.gpio_label = "PPS",
++};
++
++static struct platform_device pps_gpio_device = {
++	.name = "pps-gpio",
++	.id = -1,
++	.dev = { .platform_data = &pps_gpio_info },
++};
++
+ static int __init pps_gpio_init(void)
+ {
+ 	int ret = platform_driver_register(&pps_gpio_driver);
+-	if (ret < 0)
++	if (ret < 0) {
+ 		pr_err("failed to register platform driver\n");
++		return ret;
++	}
++
++	ret = platform_device_register(&pps_gpio_device);
++	if (ret < 0)
++		pr_err("failed to register pps_gpio_device\n");
+ 	return ret;
+ }
+ 
+ static void __exit pps_gpio_exit(void)
+ {
++	platform_device_unregister(&pps_gpio_device);
+ 	platform_driver_unregister(&pps_gpio_driver);
+ 	pr_debug("unregistered platform driver\n");
+ }
+@@ -220,8 +242,17 @@ static void __exit pps_gpio_exit(void)
+ module_init(pps_gpio_init);
+ module_exit(pps_gpio_exit);
+ 
++module_param_named(gpio_pin, pps_gpio_info.gpio_pin, uint, S_IRUGO);
++MODULE_PARM_DESC(gpio_pin, "GPIO Pin number (default 1)");
++module_param_named(falling_edge, pps_gpio_info.assert_falling_edge,
++                   bool, S_IRUGO);
++MODULE_PARM_DESC(falling_edge, "PPS occurs as falling edge (default 0)");
++module_param_named(capture_clear, pps_gpio_info.capture_clear, bool, S_IRUGO);
++MODULE_PARM_DESC(capture_clear, "PPS capture clear (default 0)");
++
+ MODULE_AUTHOR("Ricardo Martins <rasm@fe.up.pt>");
+ MODULE_AUTHOR("James Nuss <jamesnuss@nanometrics.ca>");
++MODULE_AUTHOR("Chen Wei <weichen302@gmail.com>");
+ MODULE_DESCRIPTION("Use GPIO pin as PPS source");
+ MODULE_LICENSE("GPL");
+-MODULE_VERSION("1.0.0");
++MODULE_VERSION("1.0.1");
+-- 
+1.7.10.4
+
